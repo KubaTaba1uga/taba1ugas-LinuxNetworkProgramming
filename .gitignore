@@ -3,3 +3,10 @@
 show_proto_info
 show_addr_info
 show_service_info
+convert_byte_order_between_host_and_network
+create_socket
+convert_byte_order_between_host_and_network
+create_socket
+set_socket_options
+bind_socket_to_address
+listsen_on_socket
