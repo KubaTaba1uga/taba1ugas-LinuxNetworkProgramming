@@ -2,8 +2,10 @@
     -  We receive a "ping" message from the client.
     -  We send back a "pong" message to the client.
 */
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,18 +19,9 @@
 #define LISTEN_BACKLOG 50
 
 int main(void) {
-  struct addrinfo hints = {0};
-  struct addrinfo *res = NULL;
   int sockfd;
-  int err;
 
-  err = getaddrinfo("www.example.com", "http", &hints, &res);
-  if (err) {
-    perror("getaddrinfo");
-    exit(1);
-  }
-
-  sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+  sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd == -1) {
     perror("socket");
     exit(1);
@@ -45,6 +38,7 @@ int main(void) {
   my_addr.sin_family = AF_INET;
   my_addr.sin_port = htons(net_port);
   my_addr.sin_addr.s_addr = INADDR_ANY;
+  inet_pton(AF_INET, net_addr, &my_addr.sin_addr);
 
   if (bind(sockfd, (struct sockaddr *)&my_addr, sizeof(my_addr)) == -1) {
     perror("bind");
@@ -56,39 +50,54 @@ int main(void) {
     exit(1);
   }
 
-  struct sockaddr_storage their_addr;
-  socklen_t addr_size = sizeof(their_addr);
-  int new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
-  if (new_fd == -1) {
-    perror("accept");
-    exit(1);
-  }
-
-  char buffer[1024];
-  do {
-    memset(buffer, 0, sizeof(buffer));
-
-    ssize_t read_bytes = recv(new_fd, buffer, sizeof(buffer) - 1, 0);
-    if (read_bytes > 0) {
-      printf("Read %d bytes: %.*s", (int)read_bytes, (int)read_bytes, buffer);
-      if (strcmp(buffer, "ping")) {
-        send(new_fd, "pong", strlen("pong"), 0);
-      }
-    } else if (read_bytes == 0) {
-      printf("Connection closed by peer\n");
-      break;
-    } else {
-      perror("recv failed");
-      continue;
+  while (true) {
+    // Create new_fd
+    struct sockaddr_storage their_addr;
+    socklen_t addr_size = sizeof(their_addr);
+    int new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
+    if (new_fd == -1) {
+      perror("accept");
+      exit(1);
     }
 
-    buffer[read_bytes] = 0;
+    // Use new_fd
+    char buffer[1024];
+    do {
+      memset(buffer, 0, sizeof(buffer));
 
-  } while (!strstr(buffer, "quit"));
+      ssize_t read_bytes = recv(new_fd, buffer, sizeof(buffer) - 1, 0);
+      if (read_bytes > 0) {
+        printf("Read %d bytes: %.*s\n", (int)read_bytes, (int)read_bytes,
+               buffer);
+        if (strstr(buffer, "ping")) {
+          ssize_t write_bytes = send(new_fd, "pong", strlen("pong"), 0);
+          /* puts("Wrote"); */
+          if (write_bytes > 0) {
+            printf("Write %d bytes: %s\n", (int)write_bytes, "pong");
+          } else if (write_bytes == 0) {
+            printf("Connection closed by peer\n");
+          } else {
+            perror("send failed");
+            exit(1);
+          }
+        }
+      } else if (read_bytes == 0) {
+        printf("Connection closed by peer\n");
+        break;
+      } else {
+        perror("recv failed");
+        continue;
+      }
 
-  close(new_fd);
+      buffer[read_bytes] = 0;
+
+    } while (!strstr(buffer, "quit"));
+
+    // Cleanup new fd
+    close(new_fd);
+  }
+
   close(sockfd);
-  freeaddrinfo(res);
 
   return 0;
 }
