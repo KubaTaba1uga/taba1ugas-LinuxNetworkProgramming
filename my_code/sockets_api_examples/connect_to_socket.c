@@ -82,6 +82,7 @@ int main(void) {
   }
 
   close(sockfd);
+  freeaddrinfo(res);
 
   return 0;
 }

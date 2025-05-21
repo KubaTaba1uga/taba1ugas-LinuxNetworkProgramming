@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 int socket(int domain, int type, int protocol);
 int setsockopt(int sockfd, int level, int optname, const void *optval,
@@ -82,6 +83,9 @@ int main(void) {
     perror("bind");
     exit(1);
   }
+
+  close(sockfd);
+  freeaddrinfo(res);
 
   return 0;
 }

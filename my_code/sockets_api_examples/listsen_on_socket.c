@@ -136,6 +136,7 @@ int main(void) {
 
   close(new_fd);
   close(sockfd);
+  freeaddrinfo(res);
 
   return 0;
 }

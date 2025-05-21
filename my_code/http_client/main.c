@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 int main(int argc, char *argv[]) {
   if (argc != 2) {
@@ -82,6 +83,9 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
   }
+
+  close(sockfd);
+  freeaddrinfo(res);
 
   return 0;
 }
