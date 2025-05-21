@@ -16,18 +16,9 @@ int setsockopt(int sockfd, int level, int optname, const void *optval,
 int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 
 int main(void) {
-  struct addrinfo hints = {0};
-  struct addrinfo *res = NULL;
   int sockfd;
-  int err;
 
-  err = getaddrinfo("www.example.com", "http", &hints, &res);
-  if (err) {
-    perror("getaddrinfo");
-    exit(1);
-  }
-
-  sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+  sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd == -1) {
     perror("socket");
     exit(1);
@@ -136,7 +127,6 @@ int main(void) {
 
   close(new_fd);
   close(sockfd);
-  freeaddrinfo(res);
 
   return 0;
 }
