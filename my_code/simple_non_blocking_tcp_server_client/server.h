@@ -63,7 +63,7 @@ static inline int recv_non_block(uint32_t buf_len, char *buf, int socket_fd) {
   if (received_bytes < 0) {
     return -errno;
   } else if (received_bytes > 0) {
-    printf("Read %d bytes: %s\n", received_bytes, buf);
+    printf("Read %d bytes from %d: %s\n", received_bytes, socket_fd, buf);
   }
 
   return received_bytes;
@@ -75,7 +75,8 @@ static inline int send_non_block(int socket_fd) {
   if (sent_bytes < 0) {
     return -errno;
   } else if (sent_bytes > 0) {
-    printf("Write %d bytes: %s\n", (int)strlen("pong"), "pong");
+    printf("Write %d bytes from %d: %s\n", (int)strlen("pong"), socket_fd,
+           "pong");
   }
 
   return sent_bytes;

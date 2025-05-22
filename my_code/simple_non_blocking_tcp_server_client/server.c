@@ -78,6 +78,7 @@ int main(void) {
       if (nfds < 16) {
         fds[nfds].fd = sock_client;
         fds[nfds].events = POLLIN; // Monitor for incoming data
+        printf("Created new connection %d\n", fds[nfds].fd);
         nfds++;
       }
     }
@@ -91,7 +92,7 @@ int main(void) {
           perror("recv_non_block");
           return errno;
         } else if (received_bytes == 0) {
-          puts("Deleting connection...");
+          printf("Deleting connection %d ...\n", fds[i].fd);
           close(fds[i].fd);
           fds[i].fd = fds[nfds - 1].fd; // Replace with the last descriptor
           nfds--;                       // Reduce the total count
@@ -103,7 +104,7 @@ int main(void) {
             return errno;
           } else if (sent_bytes == 0) {
             perror("send_non_block");
-            puts("Deleting connection...");
+            printf("Deleting connection %d ...\n", fds[i].fd);
             close(fds[i].fd);
             fds[i].fd = fds[nfds - 1].fd; // Replace with the last descriptor
             nfds--;                       // Reduce the total count
