@@ -13,28 +13,27 @@
         -  Stale (inactive) client connections are closed.
     -  The server responds to "ping" with "pong", and ignores other messages.
 */
-
 #include <arpa/inet.h>
+#include <assert.h>
+#include <bits/time.h>
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/queue.h>
 #include <sys/socket.h>
+#include <sys/timerfd.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "common.h"
 #include "server.h"
-
-#include <poll.h>
-#include <unistd.h>
-
-int poll(struct pollfd *fds, nfds_t nfds, int timeout);
 
 int main(void) {
   struct sockaddr client_addr;
@@ -54,13 +53,16 @@ int main(void) {
 
   struct pollfd fds[16];
   memset(&fds, 0, sizeof(fds));
+
+  init_cons_queue();
   /*
      The server socket is the first entry in the pollfd array, which is
      dynamically updated as clients connect or disconnect.
   */
   fds[0].fd = socket_fd;  // Monitor server socket
   fds[0].events = POLLIN; // Monitor for incoming connections
-  int nfds = 1;           // Start with one monitored socket
+
+  int nfds = 1; // Start with two monitored socket
 
   while (true) {
     puts("Processing event loop...");
@@ -75,35 +77,63 @@ int main(void) {
     if (fds[0].revents & POLLIN) {
       puts("Creating new connection...");
       int sock_client = accept(fds[0].fd, &client_addr, &client_addr_size);
-      if (nfds < 16) {
+      if (nfds < 15) {
         fds[nfds].fd = sock_client;
         fds[nfds].events = POLLIN; // Monitor for incoming data
         printf("Created new connection %d\n", fds[nfds].fd);
         nfds++;
+        fds[nfds].fd = create_non_blocking_timer(); // Monitor connection time
+        fds[nfds].events = POLLIN; // Monitor for incoming timer fire
+        printf("Created new timer %d for %d\n", fds[nfds].fd, fds[nfds - 1].fd);
+        insert_connection((struct Connection){
+            .timer = &fds[nfds],
+            .conn = &fds[nfds - 1],
+        });
+
+        nfds++;
       }
     }
 
-    uint32_t buf_size = 1024;
-    char buf[1024];
-    for (int i = 1; i >= 1 && i < nfds; i++) {
-      if (fds[i].revents & (POLLHUP | POLLIN | POLLERR)) {
-        int received_bytes = recv_non_block(buf_size, buf, fds[i].fd);
+    struct Connection *next, *conn = STAILQ_FIRST(&conns_queue);
+    while (conn) {
+      next = STAILQ_NEXT(conn, _next);
+      bool do_delete = false;
+      PRINTF_CONN(conn);
+
+      if (conn->conn->revents & (POLLHUP | POLLIN | POLLERR)) {
+        uint32_t buf_size = 1024;
+        char buf[buf_size];
+
+        int received_bytes = recv_non_block(buf_size, buf, conn->conn->fd);
         if (received_bytes < 0) {
           perror("recv_non_block");
           return errno;
         } else if (received_bytes == 0) {
-          delete_connection(&nfds, fds, &i);
+          do_delete = true;
         } else if (strstr(buf, "ping")) {
-          int sent_bytes = send_non_block(fds[i].fd);
+          int sent_bytes = send_non_block(conn->conn->fd);
           if (sent_bytes < 0) {
             perror("send_non_block");
             return errno;
           } else if (sent_bytes == 0) {
-            perror("send_non_block");
-            delete_connection(&nfds, fds, &i);
+            do_delete = true;
           }
         }
       }
+
+      if (conn->timer->revents & (POLLHUP | POLLIN | POLLERR)) {
+        puts("Timer fired!!!!");
+        do_delete = true;
+      }
+
+      if (do_delete) {
+        delete_connection(&nfds, fds, conn->conn);
+        delete_connection(&nfds, fds, conn->timer);
+        STAILQ_REMOVE(&conns_queue, conn, Connection, _next);
+        free(conn);
+      }
+
+      conn = next;
     }
   }
 

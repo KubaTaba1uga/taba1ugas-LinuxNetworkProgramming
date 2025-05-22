@@ -3,13 +3,31 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/poll.h>
+#include <sys/queue.h>
+#include <sys/timerfd.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #define LISTEN_BACKLOG 50
+#define TIMEOUT 2
 
-int fcntl(int fd, int cmd, ... /* arg */);
+struct Connection {
+  struct pollfd *conn;
+  struct pollfd *timer;
+  STAILQ_ENTRY(Connection) _next;
+};
+
+STAILQ_HEAD(Connections, Connection);
+struct Connections conns_queue;
+
+void init_cons_queue(void) { STAILQ_INIT(&conns_queue); }
+
+#define PRINTF_CONN(conn)                                                      \
+  printf("Connection { conn_i=%d, timer_i=%d }\n", conn->conn->fd,             \
+         conn->timer->fd);
 
 int set_non_blocking(int socket) {
   int flags = fcntl(socket, F_GETFL, 0);
@@ -85,11 +103,57 @@ static inline int send_non_block(int socket_fd) {
 }
 
 static inline void delete_connection(int *poll_buf_len, struct pollfd *poll_buf,
-                                     int *i) {
-  printf("Deleting connection %d ...\n", poll_buf[*i].fd);
-  close(poll_buf[*i].fd);
-  poll_buf[*i].fd =
-      poll_buf[*poll_buf_len - 1].fd; // Replace with the last descriptor
-  *poll_buf_len -= 1;                 // Reduce the total count
-  *i -= 1;
+                                     struct pollfd *del) {
+  if (*poll_buf_len == 0) {
+    return;
+  }
+
+  printf("Deleting connection %d ...\n", del->fd);
+
+  int i = *poll_buf_len;
+  while (i-- > 0) {
+    if (&poll_buf[i] == del) {
+      break;
+    }
+  }
+
+  if (i > 0) {
+    printf("%d", poll_buf[i].fd);
+    close(poll_buf[i].fd);
+    poll_buf[i] =
+        poll_buf[*poll_buf_len - 1]; // Replace with the last descriptor
+    *poll_buf_len -= 1;              // Reduce the total count
+  }
+}
+
+static inline int create_non_blocking_timer(void) {
+  struct itimerspec timer_value;
+
+  int sockfd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK);
+
+  timer_value.it_value.tv_sec = TIMEOUT;
+  timer_value.it_value.tv_nsec = 0;
+  timer_value.it_interval.tv_sec = 0;
+  timer_value.it_interval.tv_nsec = 0;
+
+  errno = 0;
+  if (timerfd_settime(sockfd, 0, &timer_value, NULL) != 0) {
+    return -errno;
+  };
+
+  return sockfd;
+}
+
+int insert_connection(struct Connection conn) {
+  struct Connection *tmp_conn =
+      (struct Connection *)malloc(sizeof(struct Connection));
+  if (!tmp_conn) {
+    return ENOMEM;
+  }
+
+  *tmp_conn = conn;
+
+  STAILQ_INSERT_TAIL(&conns_queue, tmp_conn, _next);
+
+  return 0;
 }
