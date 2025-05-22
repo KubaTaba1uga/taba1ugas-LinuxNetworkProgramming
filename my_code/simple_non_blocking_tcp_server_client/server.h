@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/poll.h>
+#include <unistd.h>
 
 #define LISTEN_BACKLOG 50
 
@@ -80,4 +82,14 @@ static inline int send_non_block(int socket_fd) {
   }
 
   return sent_bytes;
+}
+
+static inline void delete_connection(int *poll_buf_len, struct pollfd *poll_buf,
+                                     int *i) {
+  printf("Deleting connection %d ...\n", poll_buf[*i].fd);
+  close(poll_buf[*i].fd);
+  poll_buf[*i].fd =
+      poll_buf[*poll_buf_len - 1].fd; // Replace with the last descriptor
+  *poll_buf_len -= 1;                 // Reduce the total count
+  *i -= 1;
 }

@@ -92,11 +92,7 @@ int main(void) {
           perror("recv_non_block");
           return errno;
         } else if (received_bytes == 0) {
-          printf("Deleting connection %d ...\n", fds[i].fd);
-          close(fds[i].fd);
-          fds[i].fd = fds[nfds - 1].fd; // Replace with the last descriptor
-          nfds--;                       // Reduce the total count
-          i--;
+          delete_connection(&nfds, fds, &i);
         } else if (strstr(buf, "ping")) {
           int sent_bytes = send_non_block(fds[i].fd);
           if (sent_bytes < 0) {
@@ -104,11 +100,7 @@ int main(void) {
             return errno;
           } else if (sent_bytes == 0) {
             perror("send_non_block");
-            printf("Deleting connection %d ...\n", fds[i].fd);
-            close(fds[i].fd);
-            fds[i].fd = fds[nfds - 1].fd; // Replace with the last descriptor
-            nfds--;                       // Reduce the total count
-            i--;
+            delete_connection(&nfds, fds, &i);
           }
         }
       }
