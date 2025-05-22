@@ -2,12 +2,15 @@
     -  We send a "ping" message to the server.
     -  We receive a "pong" message from the server.
     -  We print the received message to stdout.
+  Tcp client takes number of secons so we can test server timeout.
+  It is initially set for 2 seconds so values like 1 and 2 shouldn't trigger it.
 */
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,11 +22,18 @@
 
 #define LISTEN_BACKLOG 50
 
-int main(void) {
+int main(int argc, const char *argv[]) {
   struct addrinfo hints = {0};
   struct addrinfo *res = NULL;
   int sockfd;
   int err;
+
+  if (argc != 2) {
+    printf("Usage: ping_client <number of seconds to sleep>\n");
+    exit(1);
+  }
+
+  uint32_t sleeping_time = atoi(argv[1]);
 
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
@@ -66,8 +76,10 @@ int main(void) {
       msg = msg_b;
     }
 
-    /* puts("Writing..."); */
-    ssize_t write_bytes = send(sockfd, msg, strlen(msg), 0);
+    /* MSG_NOSIGNAL means - Don’t send me SIGPIPE if I try to write to a closed
+       socket. Just return -1 and set errno = EPIPE.
+    */
+    ssize_t write_bytes = send(sockfd, msg, strlen(msg), MSG_NOSIGNAL);
     /* puts("Wrote"); */
     if (write_bytes > 0) {
       printf("Write %d bytes: %s\n", (int)write_bytes, msg);
@@ -81,19 +93,20 @@ int main(void) {
     if (i % 2) {
       char read_buf[1024];
       memset(read_buf, 0, sizeof(read_buf));
-      ssize_t read_bytes = recv(sockfd, read_buf, sizeof(read_buf) - 1, 0);
+      ssize_t read_bytes =
+          recv(sockfd, read_buf, sizeof(read_buf) - 1, MSG_NOSIGNAL);
       if (read_bytes > 0) {
         printf("Read %d bytes: %.*s\n", (int)read_bytes, (int)read_bytes,
                read_buf);
       } else if (read_bytes == 0) {
         printf("Connection closed by peer\n");
       } else {
-        perror("send failed");
+        perror("receive failed");
         exit(1);
       }
     }
 
-    sleep(5);
+    sleep(sleeping_time);
   }
 
   close(sockfd);
