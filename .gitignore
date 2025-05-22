@@ -13,3 +13,6 @@ listsen_on_socket
 http_client
 ping_client
 pong_server
+client
+server
+asan*

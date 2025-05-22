@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # List of source files
-files=("pong_server.c"
-       "ping_client.c"
+files=("server.c"
+       "client.c"
       )
 
 

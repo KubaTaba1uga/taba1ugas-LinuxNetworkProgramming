@@ -133,4 +133,8 @@ int insert_task(struct HandleConnectionTask task) {
   return 0;
 }
 
-void init_task_queue(void) { STAILQ_INIT(&task_queue); }
+void init_task_queue(void) {
+  pthread_mutex_init(&lock, NULL);
+  pthread_cond_init(&cond, NULL);
+  STAILQ_INIT(&task_queue);
+}
