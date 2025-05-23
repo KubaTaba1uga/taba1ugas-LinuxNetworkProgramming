@@ -6,24 +6,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/poll.h>
-#include <sys/queue.h>
 #include <sys/timerfd.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #define LISTEN_BACKLOG 50
 #define TIMEOUT 2
-
-struct Connection {
-  struct pollfd *conn;
-  struct pollfd *timer;
-  STAILQ_ENTRY(Connection) _next;
-};
-
-STAILQ_HEAD(Connections, Connection);
-struct Connections conns_queue;
-
-void init_cons_queue(void) { STAILQ_INIT(&conns_queue); }
 
 #define PRINTF_CONN(conn)                                                      \
   printf("Connection { conn_i=%d, timer_i=%d }\n", conn->conn->fd,             \
@@ -142,18 +130,4 @@ static inline int create_non_blocking_timer(void) {
   };
 
   return sockfd;
-}
-
-int insert_connection(struct Connection conn) {
-  struct Connection *tmp_conn =
-      (struct Connection *)malloc(sizeof(struct Connection));
-  if (!tmp_conn) {
-    return ENOMEM;
-  }
-
-  *tmp_conn = conn;
-
-  STAILQ_INSERT_TAIL(&conns_queue, tmp_conn, _next);
-
-  return 0;
 }
