@@ -105,6 +105,25 @@ int main(void) {
       assert(timerfd != NULL);
       if (connfd->revents & (POLLHUP | POLLIN | POLLERR)) {
         puts("Request fired!!!");
+        uint32_t buf_size = 1024;
+        char buf[buf_size];
+
+        int received_bytes = recv_non_block(buf_size, buf, conn->conn_fd);
+        if (received_bytes < 0) {
+          perror("recv_non_block");
+          return errno;
+        } else if (received_bytes == 0) {
+          do_delete = true;
+        } else if (strstr(buf, "ping")) {
+          int sent_bytes = send_non_block(conn->conn_fd);
+          if (sent_bytes < 0) {
+            perror("send_non_block");
+            return errno;
+          } else if (sent_bytes == 0) {
+            do_delete = true;
+          }
+        }
+        refresh_timer(conn->timer_fd);
       }
       if (timerfd->revents & (POLLHUP | POLLIN | POLLERR)) {
         puts("Timer fired!!!!");
@@ -120,40 +139,6 @@ int main(void) {
 
       conn = next;
     }
-
-    /* struct Connection *next, *conn = STAILQ_FIRST(&conns_queue); */
-    /* while (conn) { */
-    /*   next = STAILQ_NEXT(conn, _next); */
-    /*   bool do_delete = false; */
-    /*   PRINTF_CONN(conn); */
-
-    /*   if (conn->conn->revents & (POLLHUP | POLLIN | POLLERR)) { */
-    /*     uint32_t buf_size = 1024; */
-    /*     char buf[buf_size]; */
-
-    /*     int received_bytes = recv_non_block(buf_size, buf, conn->conn->fd);
-     */
-    /*     if (received_bytes < 0) { */
-    /*       perror("recv_non_block"); */
-    /*       return errno; */
-    /*     } else if (received_bytes == 0) { */
-    /*       do_delete = true; */
-    /*     } else if (strstr(buf, "ping")) { */
-    /*       int sent_bytes = send_non_block(conn->conn->fd); */
-    /*       if (sent_bytes < 0) { */
-    /*         perror("send_non_block"); */
-    /*         return errno; */
-    /*       } else if (sent_bytes == 0) { */
-    /*         do_delete = true; */
-    /*       } */
-    /*     } */
-    /*   } */
-
-    /*   if (conn->timer->revents & (POLLHUP | POLLIN | POLLERR)) { */
-    /*     puts("Timer fired!!!!"); */
-    /*     do_delete = true; */
-    /*   } */
-    /* } */
   }
 
   close(socket_fd);

@@ -131,3 +131,18 @@ static inline int create_non_blocking_timer(void) {
 
   return sockfd;
 }
+
+static inline int refresh_timer(int sockfd) {
+  struct itimerspec timer_value;
+
+  timer_value.it_value.tv_sec = TIMEOUT;
+  timer_value.it_value.tv_nsec = 0;
+  timer_value.it_interval.tv_sec = 0;
+  timer_value.it_interval.tv_nsec = 0;
+
+  errno = 0;
+  if (timerfd_settime(sockfd, 0, &timer_value, NULL) != 0) {
+    return -errno;
+  }
+  return 0;
+}
