@@ -103,8 +103,9 @@ int main(void) {
       struct pollfd *timerfd = find_fd(conn->timer_fd);
       assert(connfd != NULL);
       assert(timerfd != NULL);
+
+      // Process connection
       if (connfd->revents & (POLLHUP | POLLIN | POLLERR)) {
-        puts("Request fired!!!");
         uint32_t buf_size = 1024;
         char buf[buf_size];
 
@@ -123,8 +124,12 @@ int main(void) {
             do_delete = true;
           }
         }
+
+        // If all went good refresh timer
         refresh_timer(conn->timer_fd);
+        timerfd->revents = 0;
       }
+
       if (timerfd->revents & (POLLHUP | POLLIN | POLLERR)) {
         puts("Timer fired!!!!");
         do_delete = true;

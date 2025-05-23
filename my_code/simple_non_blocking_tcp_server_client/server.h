@@ -11,7 +11,7 @@
 #include <unistd.h>
 
 #define LISTEN_BACKLOG 50
-#define TIMEOUT 2
+#define TIMEOUT 3
 
 #define PRINTF_CONN(conn)                                                      \
   printf("Connection { conn_i=%d, timer_i=%d }\n", conn->conn->fd,             \

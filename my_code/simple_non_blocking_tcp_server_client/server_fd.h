@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <poll.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/poll.h>
 #include <unistd.h>
@@ -28,9 +29,9 @@ int init_fds_queue(void) {
 }
 
 int insert_fd(struct pollfd *fd) {
-  if (fds_buf.len == fds_buf.size) {
-    struct pollfd *tmpfds =
-        (struct pollfd *)realloc(fds_buf.fds, fds_buf.size * 2);
+  if (fds_buf.len == fds_buf.size - 1) {
+    struct pollfd *tmpfds = (struct pollfd *)realloc(
+        fds_buf.fds, fds_buf.size * 2 * sizeof(struct pollfd));
     if (!tmpfds) {
       return ENOMEM;
     }
@@ -65,13 +66,13 @@ void remove_fd(int fd) {
 
   fds_buf.len--;
 
-  if ((fds_buf.len > fds_buf.size / 2) && (fds_buf.size % 2 == 0)) {
-    struct pollfd *tmpfds =
-        (struct pollfd *)realloc(fds_buf.fds, fds_buf.size / 2);
+  uint32_t new_size = (fds_buf.size * sizeof(struct pollfd));
+  if ((fds_buf.len > new_size / 2) && (new_size % 2 == 0)) {
+    struct pollfd *tmpfds = (struct pollfd *)realloc(fds_buf.fds, new_size / 2);
     if (!tmpfds) {
       return;
     }
-    fds_buf.size /= 2;
+    fds_buf.size = new_size / 2;
     fds_buf.fds = tmpfds;
   }
 }
